@@ -26,8 +26,9 @@ import (
 	"sort"
 	"strconv"
 	"time"
+	"unsafe"
 
-	"github.com/json-iterator/go"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/common/route"
@@ -791,4 +792,22 @@ func parseDuration(s string) (time.Duration, error) {
 		return time.Duration(d), nil
 	}
 	return 0, fmt.Errorf("cannot parse %q to a valid duration", s)
+}
+
+func init() {
+	jsoniter.RegisterTypeEncoderFunc("promql.Point", MarshalPointJSON, MarshalPointJSONIsEmpty)
+}
+
+func MarshalPointJSON(ptr unsafe.Pointer, stream *jsoniter.Stream) {
+	p := *((*promql.Point)(ptr))
+	v := strconv.FormatFloat(p.V, 'f', -1, 64)
+	stream.WriteArrayStart()
+	stream.WriteFloat64(float64(p.T) / 1000)
+	stream.WriteMore()
+	stream.WriteString(v)
+	stream.WriteArrayEnd()
+}
+
+func MarshalPointJSONIsEmpty(ptr unsafe.Pointer) bool {
+	return false
 }
